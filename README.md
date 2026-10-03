@@ -8,6 +8,7 @@ Ouvre `index.html` dans un navigateur récent. Aucune installation n'est nécess
 
 - Déplacement : flèches ou ZQSD
 - Tir : maintenir Espace
+- Changer d'arme : touche E ou bouton d'arme
 - Pause : Échap
 - Sur mobile : utiliser les commandes tactiles affichées à l'écran
 

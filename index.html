@@ -46,6 +46,8 @@
     .hud-label { display: block; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; }
     .hud-value { display: block; margin-top: 3px; color: var(--ink); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
     .hearts { color: var(--orange); letter-spacing: 2px; white-space: nowrap; }
+    .weapon-button { min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 3px; color: var(--acid); background: transparent; cursor: pointer; font: 800 10px "DM Sans", sans-serif; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
+    .weapon-button:hover { border-color: var(--acid); }
     .sound-button { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: transparent; cursor: pointer; font-size: 16px; }
     .sound-button:hover { border-color: var(--acid); color: var(--acid); }
     .arena { position: relative; min-height: 0; overflow: hidden; background: #242d28; }
@@ -82,6 +84,8 @@
       .hud-item { min-width: 43px; }
       .hud-label { font-size: 8px; letter-spacing: 1px; }
       .hud-value { font-size: 16px; }
+      .weapon-button { width: 32px; min-height: 32px; padding: 0; font-size: 15px; }
+      .weapon-button span { display: none; }
       .sound-button { width: 32px; height: 32px; }
     }
     @media (max-width: 390px) {
@@ -102,6 +106,7 @@
         <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="score">0000</span></div>
         <div class="hud-item"><span class="hud-label">Vague</span><span class="hud-value" id="wave">01</span></div>
         <div class="hud-item"><span class="hud-label">Vie</span><span class="hud-value hearts" id="lives">♥ ♥ ♥</span></div>
+        <button class="weapon-button" id="weapon" type="button" aria-label="Changer d'arme : Lanterne" title="Changer d'arme (E)">✦ <span id="weapon-name">Lanterne</span></button>
         <button class="sound-button" id="sound" type="button" aria-label="Activer ou couper le son" title="Son activé">♫</button>
       </div>
     </header>
@@ -113,7 +118,7 @@
           <h1 id="overlay-title">Les tombes<br>sont ouvertes</h1>
           <p id="overlay-copy">Elles sortent de partout. Tiens bon, vise la plus proche et renvoie-les sous terre !</p>
           <button class="start-button" id="start" type="button">Entrer dans le cimetière</button>
-          <div class="control-note">Bouger <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> &nbsp; Tirer <kbd>Espace</kbd></div>
+          <div class="control-note">Bouger <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> &nbsp; Tirer <kbd>Espace</kbd> &nbsp; Arme <kbd>E</kbd></div>
         </div>
       </div>
       <div class="mobile-controls" aria-label="Commandes tactiles">
@@ -137,12 +142,18 @@
   const scoreEl = document.querySelector('#score');
   const waveEl = document.querySelector('#wave');
   const livesEl = document.querySelector('#lives');
+  const weaponButton = document.querySelector('#weapon');
+  const weaponName = document.querySelector('#weapon-name');
   const keys = new Set();
   const touchDirections = new Set();
   let width = 0, height = 0, dpr = 1;
   let running = false, paused = false, score = 0, lives = 3, wave = 1, lastTime = 0;
-  let spawnTimer = 0, shotTimer = 0, damageTimer = 0, muted = false, audioContext;
+  let spawnTimer = 0, shotTimer = 0, damageTimer = 0, weaponIndex = 0, muted = false, audioContext;
   let player, mummies = [], shots = [], particles = [], graves = [], stars = [];
+  const weapons = [
+    { name: 'Lanterne', cooldown: .25, speed: 470, spread: 0, radius: 4, color: '#d8eb82' },
+    { name: 'Citrouille', cooldown: .62, speed: 350, spread: .2, radius: 7, color: '#ff824a' }
+  ];
   const random = (min, max) => Math.random() * (max - min) + min;
 
   function resize() {
@@ -173,6 +184,19 @@
     scoreEl.textContent = String(score).padStart(4, '0');
     waveEl.textContent = String(wave).padStart(2, '0');
     livesEl.textContent = lives > 0 ? Array.from({ length: 3 }, (_, i) => i < lives ? '♥' : '♡').join(' ') : '♡ ♡ ♡';
+  }
+
+  function updateWeaponButton() {
+    const weapon = weapons[weaponIndex];
+    weaponName.textContent = weapon.name;
+    weaponButton.setAttribute('aria-label', `Changer d'arme : ${weapon.name}`);
+    weaponButton.title = `Arme actuelle : ${weapon.name} (E pour changer)`;
+  }
+
+  function cycleWeapon() {
+    weaponIndex = (weaponIndex + 1) % weapons.length;
+    updateWeaponButton();
+    sound(weaponIndex ? 330 : 470, .08);
   }
 
   function sound(frequency = 420, duration = .075, type = 'triangle') {
@@ -212,15 +236,20 @@
 
   function shoot() {
     if (!mummies.length || shotTimer > 0) return;
+    const weapon = weapons[weaponIndex];
     let target = mummies[0], closest = Infinity;
     for (const mummy of mummies) {
       const distance = Math.hypot(mummy.x - player.x, mummy.y - player.y);
       if (distance < closest) { closest = distance; target = mummy; }
     }
     const angle = Math.atan2(target.y - player.y, target.x - player.x);
-    shots.push({ x: player.x + Math.cos(angle) * 18, y: player.y + Math.sin(angle) * 18, vx: Math.cos(angle) * 470, vy: Math.sin(angle) * 470, life: 1.1 });
+    const spreadAngles = weapon.spread ? [-weapon.spread, 0, weapon.spread] : [0];
+    for (const spread of spreadAngles) {
+      const shotAngle = angle + spread;
+      shots.push({ x: player.x + Math.cos(shotAngle) * 18, y: player.y + Math.sin(shotAngle) * 18, vx: Math.cos(shotAngle) * weapon.speed, vy: Math.sin(shotAngle) * weapon.speed, life: 1.1, radius: weapon.radius, color: weapon.color, pumpkin: weapon.spread > 0 });
+    }
     player.facing = Math.cos(angle) >= 0 ? 1 : -1;
-    shotTimer = .25; sound(570, .06);
+    shotTimer = weapon.cooldown; sound(weaponIndex ? 330 : 570, .06, weaponIndex ? 'square' : 'triangle');
   }
 
   function burst(x, y, color, count = 9) {
@@ -259,7 +288,7 @@
     }
     for (const shot of shots) { shot.x += shot.vx * dt; shot.y += shot.vy * dt; shot.life -= dt; }
     for (const shot of shots) {
-      const hit = mummies.find(mummy => Math.hypot(mummy.x - shot.x, mummy.y - shot.y) < mummy.radius + 7);
+      const hit = mummies.find(mummy => Math.hypot(mummy.x - shot.x, mummy.y - shot.y) < mummy.radius + shot.radius);
       if (hit && shot.life > 0) {
         shot.life = 0; hit.hp--; hit.hit = .12; burst(shot.x, shot.y, '#c4d96b', 5);
         if (hit.hp <= 0) { burst(hit.x, hit.y, '#d8c9a2', 12); mummies.splice(mummies.indexOf(hit), 1); score += 10; updateHud(); sound(230, .11, 'square'); }
@@ -324,7 +353,11 @@
   function draw() {
     if (!width || !height) return;
     ctx.clearRect(0, 0, width, height); drawBackground();
-    for (const shot of shots) { ctx.fillStyle = '#d8eb82'; ctx.shadowColor = '#d8eb82'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(shot.x, shot.y, 4, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+    for (const shot of shots) {
+      ctx.fillStyle = shot.color; ctx.shadowColor = shot.color; ctx.shadowBlur = shot.pumpkin ? 7 : 12;
+      ctx.beginPath(); ctx.arc(shot.x, shot.y, shot.radius, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      if (shot.pumpkin) { ctx.fillStyle = '#66834a'; ctx.fillRect(shot.x - 1, shot.y - shot.radius - 2, 3, 4); }
+    }
     for (const mummy of mummies) drawMummy(mummy);
     drawPlayer();
     for (const particle of particles) { ctx.globalAlpha = Math.max(0, particle.life / particle.max); ctx.fillStyle = particle.color; ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2); ctx.fill(); }
@@ -339,12 +372,14 @@
   }
 
   document.querySelector('#start').addEventListener('click', startGame);
+  weaponButton.addEventListener('click', cycleWeapon);
   document.querySelector('#sound').addEventListener('click', event => {
     muted = !muted; event.currentTarget.textContent = muted ? '×' : '♫'; event.currentTarget.title = muted ? 'Son coupé' : 'Son activé';
   });
   window.addEventListener('keydown', event => {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
     keys.add(event.code);
+    if (event.code === 'KeyE' && !event.repeat) cycleWeapon();
     if (event.code === 'Escape' && running) {
       running = false; paused = true; document.querySelector('#overlay-eyebrow').textContent = 'La nuit attend';
       document.querySelector('#overlay-title').innerHTML = 'Petite<br>pause';
@@ -363,7 +398,7 @@
   fireButton.addEventListener('pointerdown', event => { event.preventDefault(); fireButton.setPointerCapture(event.pointerId); touchDirections.add('fire'); });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => fireButton.addEventListener(type, () => touchDirections.delete('fire')));
   window.addEventListener('resize', resize);
-  resize(); reset();
+  resize(); reset(); updateWeaponButton();
 })();
 </script>
 </body>
