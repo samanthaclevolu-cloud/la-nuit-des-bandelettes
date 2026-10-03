@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#151817">
+  <title>La Nuit des bandelettes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f1e6d2;
+      --muted: #aaa99a;
+      --acid: #c4d96b;
+      --orange: #ff824a;
+      --line: rgba(237, 232, 206, .15);
+      --panel: rgba(21, 24, 23, .87);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100svh;
+      overflow: hidden;
+      background: #151817;
+      color: var(--ink);
+      font-family: "DM Sans", sans-serif;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .game-shell { min-height: 100svh; display: grid; grid-template-rows: 76px 1fr 36px; }
+    .topbar {
+      position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 clamp(16px, 4vw, 56px); border-bottom: 1px solid var(--line);
+      background: rgba(19, 22, 21, .92);
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #77834d; border-radius: 50%; color: var(--acid); font-size: 18px; }
+    .brand-copy { line-height: 1; }
+    .brand-copy strong { display: block; font-family: Creepster, Georgia, serif; font-size: 23px; font-weight: 400; letter-spacing: .4px; }
+    .brand-copy span { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    .hud { display: flex; align-items: center; gap: clamp(12px, 3vw, 34px); }
+    .hud-item { min-width: 58px; }
+    .hud-label { display: block; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; }
+    .hud-value { display: block; margin-top: 3px; color: var(--ink); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .hearts { color: var(--orange); letter-spacing: 2px; white-space: nowrap; }
+    .sound-button { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: transparent; cursor: pointer; font-size: 16px; }
+    .sound-button:hover { border-color: var(--acid); color: var(--acid); }
+    .arena { position: relative; min-height: 0; overflow: hidden; background: #242d28; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .arena::after { position: absolute; inset: 0; z-index: 1; content: ""; pointer-events: none; background: linear-gradient(180deg, rgba(13,16,15,.08), transparent 26%, transparent 76%, rgba(13,16,15,.35)); }
+    .overlay { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(12, 15, 14, .4); backdrop-filter: blur(3px); transition: opacity .25s ease, visibility .25s ease; }
+    .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .intro { width: min(100%, 450px); text-align: center; }
+    .eyebrow { color: var(--acid); font-size: 10px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; }
+    h1 { margin: 9px 0 10px; color: #f1e6d2; font-family: Creepster, Georgia, serif; font-size: clamp(42px, 8vw, 76px); font-weight: 400; line-height: .95; text-shadow: 0 4px 30px rgba(0,0,0,.42); }
+    .intro p { max-width: 340px; margin: 0 auto 23px; color: #c3c3b2; font-size: 14px; line-height: 1.65; }
+    .start-button { min-height: 48px; padding: 0 25px; border: 0; border-radius: 3px; background: var(--acid); color: #20251b; font: 800 12px "DM Sans", sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: transform .15s ease, background .15s ease; }
+    .start-button:hover { transform: translateY(-2px); background: #d7e88b; }
+    .control-note { margin-top: 17px; color: rgba(235, 231, 212, .64); font-size: 11px; }
+    .control-note kbd { display: inline-block; min-width: 21px; margin: 0 2px; padding: 3px 5px; border: 1px solid rgba(255,255,255,.2); border-radius: 3px; color: var(--ink); font: 700 10px "DM Sans", sans-serif; }
+    .mobile-controls { position: absolute; z-index: 2; right: 20px; bottom: 20px; left: 20px; display: none; align-items: end; justify-content: space-between; pointer-events: none; }
+    .dpad { display: grid; grid-template: repeat(2, 42px) / repeat(3, 42px); gap: 3px; pointer-events: auto; }
+    .touch-key, .fire-button { display: grid; place-items: center; border: 1px solid rgba(239,232,205,.26); background: rgba(23,28,25,.7); color: var(--ink); touch-action: none; }
+    .touch-key { border-radius: 9px; font-size: 16px; }
+    .touch-key[data-dir="up"] { grid-area: 1 / 2; }
+    .touch-key[data-dir="left"] { grid-area: 2 / 1; }
+    .touch-key[data-dir="down"] { grid-area: 2 / 2; }
+    .touch-key[data-dir="right"] { grid-area: 2 / 3; }
+    .fire-button { width: 76px; height: 76px; border-radius: 50%; color: var(--acid); font-size: 10px; font-weight: 800; letter-spacing: 1px; pointer-events: auto; }
+    .footer { display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(16px, 4vw, 56px); color: #777e72; font-size: 10px; letter-spacing: .3px; }
+    .footer b { color: #aeb88b; font-weight: 600; }
+    @media (pointer: coarse), (max-width: 700px) {
+      .game-shell { grid-template-rows: 67px 1fr 30px; }
+      .mobile-controls { display: flex; }
+      .footer .desktop-hint { display: none; }
+      .brand-copy strong { font-size: 20px; }
+      .brand-copy span { font-size: 8px; letter-spacing: 1.5px; }
+      .hud { gap: 11px; }
+      .hud-item { min-width: 43px; }
+      .hud-label { font-size: 8px; letter-spacing: 1px; }
+      .hud-value { font-size: 16px; }
+      .sound-button { width: 32px; height: 32px; }
+    }
+    @media (max-width: 390px) {
+      .brand-mark { display: none; }
+      .hud { gap: 8px; }
+      .hud-item { min-width: 38px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">✳</div>
+        <div class="brand-copy"><strong>La nuit des bandelettes</strong><span>Expédition au vieux cimetière</span></div>
+      </div>
+      <div class="hud" aria-label="Statistiques de la partie">
+        <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="score">0000</span></div>
+        <div class="hud-item"><span class="hud-label">Vague</span><span class="hud-value" id="wave">01</span></div>
+        <div class="hud-item"><span class="hud-label">Vie</span><span class="hud-value hearts" id="lives">♥ ♥ ♥</span></div>
+        <button class="sound-button" id="sound" type="button" aria-label="Activer ou couper le son" title="Son activé">♫</button>
+      </div>
+    </header>
+    <section class="arena" aria-label="Arène de jeu">
+      <canvas id="game" aria-label="Jeu d'arcade contre des momies"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="intro">
+          <div class="eyebrow" id="overlay-eyebrow">Une nuit. Une pelle. Trop de momies.</div>
+          <h1 id="overlay-title">Les tombes<br>sont ouvertes</h1>
+          <p id="overlay-copy">Elles sortent de partout. Tiens bon, vise la plus proche et renvoie-les sous terre !</p>
+          <button class="start-button" id="start" type="button">Entrer dans le cimetière</button>
+          <div class="control-note">Bouger <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> &nbsp; Tirer <kbd>Espace</kbd></div>
+        </div>
+      </div>
+      <div class="mobile-controls" aria-label="Commandes tactiles">
+        <div class="dpad">
+          <button class="touch-key" data-dir="up" aria-label="Haut">▲</button>
+          <button class="touch-key" data-dir="left" aria-label="Gauche">◀</button>
+          <button class="touch-key" data-dir="down" aria-label="Bas">▼</button>
+          <button class="touch-key" data-dir="right" aria-label="Droite">▶</button>
+        </div>
+        <button class="fire-button" id="fire" aria-label="Tirer">TIRER</button>
+      </div>
+    </section>
+    <footer class="footer"><span>Un jeu de <b>citrouille &amp; courage</b></span><span class="desktop-hint">Échap pour mettre en pause</span></footer>
+  </main>
+<script>
+(() => {
+  const canvas = document.querySelector('#game');
+  const ctx = canvas.getContext('2d');
+  const arena = document.querySelector('.arena');
+  const overlay = document.querySelector('#overlay');
+  const scoreEl = document.querySelector('#score');
+  const waveEl = document.querySelector('#wave');
+  const livesEl = document.querySelector('#lives');
+  const keys = new Set();
+  const touchDirections = new Set();
+  let width = 0, height = 0, dpr = 1;
+  let running = false, paused = false, score = 0, lives = 3, wave = 1, lastTime = 0;
+  let spawnTimer = 0, shotTimer = 0, damageTimer = 0, muted = false, audioContext;
+  let player, mummies = [], shots = [], particles = [], graves = [], stars = [];
+  const random = (min, max) => Math.random() * (max - min) + min;
+
+  function resize() {
+    const rect = arena.getBoundingClientRect();
+    width = rect.width; height = rect.height; dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    createScenery();
+    if (player) { player.x = Math.min(width - 28, Math.max(28, player.x)); player.y = Math.min(height - 34, Math.max(70, player.y)); }
+    draw();
+  }
+
+  function createScenery() {
+    graves = Array.from({ length: Math.ceil(width / 115) + 3 }, (_, i) => ({
+      x: i * 115 + random(-25, 25), y: height * random(.18, .48), scale: random(.55, 1.05), kind: Math.floor(random(0, 3))
+    }));
+    stars = Array.from({ length: 55 }, () => ({ x: random(0, width), y: random(0, height * .56), r: random(.5, 1.5), a: random(.15, .7) }));
+  }
+
+  function reset() {
+    score = 0; lives = 3; wave = 1; spawnTimer = .4; shotTimer = 0; damageTimer = 0;
+    mummies = []; shots = []; particles = [];
+    player = { x: width / 2, y: height * .67, speed: 245, radius: 14, facing: 1 };
+    updateHud();
+  }
+
+  function updateHud() {
+    scoreEl.textContent = String(score).padStart(4, '0');
+    waveEl.textContent = String(wave).padStart(2, '0');
+    livesEl.textContent = lives > 0 ? Array.from({ length: 3 }, (_, i) => i < lives ? '♥' : '♡').join(' ') : '♡ ♡ ♡';
+  }
+
+  function sound(frequency = 420, duration = .075, type = 'triangle') {
+    if (muted) return;
+    try {
+      audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator(), gain = audioContext.createGain();
+      oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(75, frequency * .55), audioContext.currentTime + duration);
+      gain.gain.setValueAtTime(.055, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration);
+      oscillator.connect(gain); gain.connect(audioContext.destination); oscillator.start(); oscillator.stop(audioContext.currentTime + duration);
+    } catch { /* Le jeu reste muet si l'audio n'est pas disponible. */ }
+  }
+
+  function startGame() {
+    if (!paused) reset();
+    paused = false; running = true; lastTime = performance.now();
+    overlay.classList.add('hidden'); requestAnimationFrame(loop);
+  }
+
+  function endGame() {
+    running = false; paused = false;
+    document.querySelector('#overlay-eyebrow').textContent = 'Le cimetière retrouve son calme';
+    document.querySelector('#overlay-title').innerHTML = 'Bien joué,<br>chasseur !';
+    document.querySelector('#overlay-copy').textContent = `Tu as marqué ${score} points. Le cimetière te remercie.`;
+    document.querySelector('#start').textContent = 'Rejouer';
+    overlay.classList.remove('hidden');
+  }
+
+  function spawnMummy() {
+    const edge = Math.floor(random(0, 4));
+    const x = edge === 0 ? -24 : edge === 1 ? width + 24 : random(24, width - 24);
+    const y = edge === 2 ? -28 : edge === 3 ? height + 28 : random(height * .16, height * .48);
+    mummies.push({ x, y, speed: random(35, 53) + wave * 2.1, radius: random(14, 18), phase: random(0, 6.28), hp: wave > 3 && Math.random() < .2 ? 2 : 1, hit: 0 });
+  }
+
+  function shoot() {
+    if (!mummies.length || shotTimer > 0) return;
+    let target = mummies[0], closest = Infinity;
+    for (const mummy of mummies) {
+      const distance = Math.hypot(mummy.x - player.x, mummy.y - player.y);
+      if (distance < closest) { closest = distance; target = mummy; }
+    }
+    const angle = Math.atan2(target.y - player.y, target.x - player.x);
+    shots.push({ x: player.x + Math.cos(angle) * 18, y: player.y + Math.sin(angle) * 18, vx: Math.cos(angle) * 470, vy: Math.sin(angle) * 470, life: 1.1 });
+    player.facing = Math.cos(angle) >= 0 ? 1 : -1;
+    shotTimer = .25; sound(570, .06);
+  }
+
+  function burst(x, y, color, count = 9) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2, speed = random(35, 145);
+      particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: random(.25, .6), max: .6, color, size: random(2, 5) });
+    }
+  }
+
+  function update(dt) {
+    if (!running) return;
+    const left = keys.has('ArrowLeft') || keys.has('KeyA') || keys.has('KeyQ') || touchDirections.has('left');
+    const right = keys.has('ArrowRight') || keys.has('KeyD') || touchDirections.has('right');
+    const up = keys.has('ArrowUp') || keys.has('KeyW') || keys.has('KeyZ') || touchDirections.has('up');
+    const down = keys.has('ArrowDown') || keys.has('KeyS') || touchDirections.has('down');
+    let dx = Number(right) - Number(left), dy = Number(down) - Number(up);
+    const magnitude = Math.hypot(dx, dy) || 1;
+    player.x = Math.max(24, Math.min(width - 24, player.x + dx / magnitude * player.speed * dt));
+    player.y = Math.max(72, Math.min(height - 35, player.y + dy / magnitude * player.speed * dt));
+    if (dx) player.facing = Math.sign(dx);
+    shotTimer = Math.max(0, shotTimer - dt); damageTimer = Math.max(0, damageTimer - dt);
+    if (keys.has('Space') || touchDirections.has('fire')) shoot();
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) { spawnMummy(); spawnTimer = Math.max(.42, 1.35 - wave * .055); }
+    if (score >= wave * 100) { wave++; updateHud(); }
+
+    for (const mummy of mummies) {
+      const angle = Math.atan2(player.y - mummy.y, player.x - mummy.x);
+      mummy.x += Math.cos(angle) * mummy.speed * dt;
+      mummy.y += Math.sin(angle) * mummy.speed * dt + Math.sin(performance.now() / 180 + mummy.phase) * 9 * dt;
+      mummy.hit = Math.max(0, mummy.hit - dt);
+      if (Math.hypot(player.x - mummy.x, player.y - mummy.y) < player.radius + mummy.radius && damageTimer <= 0) {
+        lives--; damageTimer = 1.05; burst(player.x, player.y, '#ff824a', 11); sound(145, .18, 'sawtooth'); updateHud();
+        if (lives <= 0) { endGame(); return; }
+      }
+    }
+    for (const shot of shots) { shot.x += shot.vx * dt; shot.y += shot.vy * dt; shot.life -= dt; }
+    for (const shot of shots) {
+      const hit = mummies.find(mummy => Math.hypot(mummy.x - shot.x, mummy.y - shot.y) < mummy.radius + 7);
+      if (hit && shot.life > 0) {
+        shot.life = 0; hit.hp--; hit.hit = .12; burst(shot.x, shot.y, '#c4d96b', 5);
+        if (hit.hp <= 0) { burst(hit.x, hit.y, '#d8c9a2', 12); mummies.splice(mummies.indexOf(hit), 1); score += 10; updateHud(); sound(230, .11, 'square'); }
+      }
+    }
+    shots = shots.filter(shot => shot.life > 0 && shot.x > -20 && shot.x < width + 20 && shot.y > -20 && shot.y < height + 20);
+    for (const particle of particles) { particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.life -= dt; particle.vx *= .98; particle.vy *= .98; }
+    particles = particles.filter(particle => particle.life > 0);
+  }
+
+  function drawBackground() {
+    const sky = ctx.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, '#253632'); sky.addColorStop(.53, '#39443a'); sky.addColorStop(1, '#252b24');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(216,221,179,.06)'; ctx.beginPath(); ctx.arc(width * .78, height * .18, Math.min(width, height) * .105, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c3c8a1'; ctx.beginPath(); ctx.arc(width * .78, height * .18, Math.min(width, height) * .062, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#303b33'; ctx.beginPath(); ctx.arc(width * .81, height * .16, Math.min(width, height) * .058, 0, Math.PI * 2); ctx.fill();
+    for (const star of stars) { ctx.globalAlpha = star.a; ctx.fillStyle = '#e8e3c9'; ctx.beginPath(); ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#222a25'; ctx.beginPath(); ctx.moveTo(0, height * .49); ctx.quadraticCurveTo(width * .18, height * .42, width * .37, height * .5); ctx.quadraticCurveTo(width * .62, height * .42, width, height * .49); ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.fill();
+    for (const grave of graves) drawGrave(grave);
+    const ground = ctx.createLinearGradient(0, height * .53, 0, height);
+    ground.addColorStop(0, 'rgba(67,77,55,.36)'); ground.addColorStop(1, 'rgba(19,24,20,.57)');
+    ctx.fillStyle = ground; ctx.fillRect(0, height * .53, width, height * .47);
+    ctx.strokeStyle = 'rgba(185,190,148,.08)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 32; i++) { const x = (i * 97 + 24) % width, y = height * (.56 + (i % 9) * .047); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 5, y - 6); ctx.moveTo(x + 5, y - 6); ctx.lineTo(x + 9, y); ctx.stroke(); }
+  }
+
+  function drawGrave(g) {
+    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(g.scale, g.scale); ctx.fillStyle = '#394139'; ctx.strokeStyle = '#66705b'; ctx.lineWidth = 2;
+    if (g.kind === 0) { ctx.beginPath(); ctx.roundRect(-19, -24, 38, 37, 15); ctx.fill(); ctx.stroke(); }
+    else if (g.kind === 1) { ctx.beginPath(); ctx.roundRect(-14, -27, 28, 42, 12); ctx.fill(); ctx.stroke(); ctx.fillRect(-20, -4, 40, 9); ctx.fillRect(-4, -32, 8, 20); }
+    else { ctx.beginPath(); ctx.moveTo(-20, -25); ctx.lineTo(0, -38); ctx.lineTo(20, -25); ctx.lineTo(17, 14); ctx.lineTo(-17, 14); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(183,188,157,.24)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-7, -11); ctx.lineTo(5, -9); ctx.moveTo(-8, -5); ctx.lineTo(9, -2); ctx.stroke(); ctx.restore();
+  }
+
+  function drawMummy(m) {
+    ctx.save(); ctx.translate(m.x, m.y + Math.sin(performance.now() / 150 + m.phase) * 2); ctx.rotate(Math.sin(performance.now() / 360 + m.phase) * .045);
+    const r = m.radius;
+    ctx.fillStyle = m.hit ? '#f8f0d4' : '#b6a982'; ctx.strokeStyle = '#4f5142'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(-r * .68, -r * .9, r * 1.36, r * 1.8, r * .52); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#ded2ae'; ctx.lineWidth = Math.max(3, r * .22); ctx.lineCap = 'round';
+    for (let i = -2; i <= 2; i++) { const y = i * r * .32; ctx.beginPath(); ctx.moveTo(-r * .57, y + r * .16); ctx.lineTo(r * .56, y - r * .12); ctx.stroke(); }
+    ctx.fillStyle = '#272b23'; ctx.fillRect(-r * .5, -r * .4, r, r * .35);
+    ctx.fillStyle = '#f1a15d'; ctx.beginPath(); ctx.arc(-r * .21, -r * .24, 2.1, 0, Math.PI * 2); ctx.arc(r * .22, -r * .24, 2.1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    if (!player) return;
+    if (damageTimer > 0 && Math.floor(damageTimer * 13) % 2 === 0) return;
+    ctx.save(); ctx.translate(player.x, player.y);
+    ctx.fillStyle = 'rgba(11,14,12,.34)'; ctx.beginPath(); ctx.ellipse(0, 12, 17, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b96243'; ctx.beginPath(); ctx.moveTo(-12, -4); ctx.quadraticCurveTo(-11, -18, 0, -19); ctx.quadraticCurveTo(12, -17, 13, -4); ctx.lineTo(8, -2); ctx.lineTo(6, 9); ctx.lineTo(-6, 9); ctx.lineTo(-8, -2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d9c99f'; ctx.beginPath(); ctx.arc(0, -10, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#32362d'; ctx.beginPath(); ctx.moveTo(-10, -13); ctx.lineTo(0, -23); ctx.lineTo(10, -13); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#c4d96b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(player.facing * 8, -3); ctx.lineTo(player.facing * 19, -8); ctx.stroke();
+    ctx.fillStyle = '#ffd27a'; ctx.globalAlpha = .5 + Math.sin(performance.now() / 95) * .15; ctx.beginPath(); ctx.arc(-player.facing * 10, 1, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe5a1'; ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(-player.facing * 10, 1, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+
+  function draw() {
+    if (!width || !height) return;
+    ctx.clearRect(0, 0, width, height); drawBackground();
+    for (const shot of shots) { ctx.fillStyle = '#d8eb82'; ctx.shadowColor = '#d8eb82'; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(shot.x, shot.y, 4, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+    for (const mummy of mummies) drawMummy(mummy);
+    drawPlayer();
+    for (const particle of particles) { ctx.globalAlpha = Math.max(0, particle.life / particle.max); ctx.fillStyle = particle.color; ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+
+  function loop(time) {
+    if (!running) return;
+    const dt = Math.min((time - lastTime) / 1000, .035); lastTime = time;
+    update(dt); draw();
+    if (running) requestAnimationFrame(loop);
+  }
+
+  document.querySelector('#start').addEventListener('click', startGame);
+  document.querySelector('#sound').addEventListener('click', event => {
+    muted = !muted; event.currentTarget.textContent = muted ? '×' : '♫'; event.currentTarget.title = muted ? 'Son coupé' : 'Son activé';
+  });
+  window.addEventListener('keydown', event => {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
+    keys.add(event.code);
+    if (event.code === 'Escape' && running) {
+      running = false; paused = true; document.querySelector('#overlay-eyebrow').textContent = 'La nuit attend';
+      document.querySelector('#overlay-title').innerHTML = 'Petite<br>pause';
+      document.querySelector('#overlay-copy').textContent = 'Reprends ton souffle. Les momies ne vont nulle part.';
+      document.querySelector('#start').textContent = 'Reprendre'; overlay.classList.remove('hidden');
+    }
+  });
+  window.addEventListener('keyup', event => keys.delete(event.code));
+  document.querySelectorAll('.touch-key').forEach(button => {
+    const direction = button.dataset.dir;
+    button.addEventListener('pointerdown', event => { event.preventDefault(); button.setPointerCapture(event.pointerId); touchDirections.add(direction); });
+    const release = () => touchDirections.delete(direction);
+    button.addEventListener('pointerup', release); button.addEventListener('pointercancel', release); button.addEventListener('lostpointercapture', release);
+  });
+  const fireButton = document.querySelector('#fire');
+  fireButton.addEventListener('pointerdown', event => { event.preventDefault(); fireButton.setPointerCapture(event.pointerId); touchDirections.add('fire'); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => fireButton.addEventListener(type, () => touchDirections.delete('fire')));
+  window.addEventListener('resize', resize);
+  resize(); reset();
+})();
+</script>
+</body>
+</html>
